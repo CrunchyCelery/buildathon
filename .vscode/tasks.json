@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run all fixtures",
+      "type": "shell",
+      "command": "python scripts/run_fixtures.py fixtures -- python pipeline/pipeline.py",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run parser tests",
+      "type": "shell",
+      "command": "python tests/test_parsing.py",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
