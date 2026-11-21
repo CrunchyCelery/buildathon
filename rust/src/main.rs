@@ -39,9 +39,15 @@ const DAY: i64 = 86_400_000;
 const GAP: i64 = 30 * 60 * 1000; // a gap OVER this starts a new session
 const LATE: i64 = DAY; // ingest_ts - ts OVER this drops the event
 const LOOKBACK: i64 = 7 * DAY; // clicks credit/assist sessions up to 7 days later
-const BUCKET_BITS: u32 = 8;
+// 1024 buckets measured best (256: ~6% slower; 2048 and 4096: slower, as each
+// chunk then holds too many tiny per-bucket vectors).
+const BUCKET_BITS: u32 = 10;
 const NB: usize = 1 << BUCKET_BITS; // buckets for dedup and for persons
-const CHUNK: usize = 4 << 20;
+// Chunk size scales with the input: ~12 chunks per thread, 4..64 MB. 4, 8 and
+// 16 MB measured equal at 10M events; fixed small chunks would multiply the
+// per-bucket vectors (chunks x buckets) at 60M.
+const CHUNK_MIN: usize = 4 << 20;
+const CHUNK_MAX: usize = 64 << 20;
 const BAD_TS: i64 = i64::MIN;
 
 const VIEW: u8 = 0;
@@ -196,8 +202,10 @@ fn map_all(paths: &[PathBuf]) -> Vec<Mmap> {
 }
 
 /// All data chunks (header skipped) of a set of mapped files.
-fn data_chunks<'a>(maps: &'a [Mmap]) -> Vec<&'a [u8]> {
-    maps.iter().flat_map(|m| csv::chunks(csv::data_region(&m[..]), CHUNK)).collect()
+fn data_chunks<'a>(maps: &'a [Mmap], ncpu: usize) -> Vec<&'a [u8]> {
+    let total: usize = maps.iter().map(|m| m.len()).sum();
+    let size = (total / (ncpu.max(1) * 12)).clamp(CHUNK_MIN, CHUNK_MAX);
+    maps.iter().flat_map(|m| csv::chunks(csv::data_region(&m[..]), size)).collect()
 }
 
 fn env(k: &str, d: &str) -> String {
@@ -272,8 +280,8 @@ fn main() {
 
     // --- Links (one thread) || event parse + scatter by event_id -----------
     let link_regions: Vec<&[u8]> = link_maps.iter().map(|m| csv::data_region(&m[..])).collect();
-    let event_chunks = data_chunks(&event_maps);
-    let click_chunks = data_chunks(&click_maps);
+    let event_chunks = data_chunks(&event_maps, ncpu);
+    let click_chunks = data_chunks(&click_maps, ncpu);
     // Clicks are parsed and validated in this phase too: links run on one
     // thread and are the critical path, so the other threads would otherwise
     // go idle. Only the person lookup has to wait for the links.
