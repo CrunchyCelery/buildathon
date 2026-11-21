@@ -296,7 +296,7 @@ fn main() {
         ((Vec<Vec<Vec<EvCopy>>>, Vec<Vec<ClickRaw>>), Vec<Vec<(u32, u32)>>),
     ) = rayon::join(
         || {
-            let p = people::build(&link_regions);
+            let p = people::build(&link_regions, ncpu);
             if debug {
                 eprintln!("  links done at {:.3}s", t0.elapsed().as_secs_f64());
             }
