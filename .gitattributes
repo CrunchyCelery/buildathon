@@ -1,0 +1,4 @@
+# Keep every file byte for byte: no CRLF conversion on any platform.
+# The fixtures test exact \r handling (a \r is data, not a line ending), and
+# run.sh must keep LF to run inside the Linux container.
+* -text
