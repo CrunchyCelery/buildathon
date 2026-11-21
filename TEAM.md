@@ -2,4 +2,4 @@
 
 Name: BCE Chuds
 Members: Keon Heng, Jerald Chng
-Engine: DuckDB
+Engine: Rust (native binary; DuckDB pipeline kept as reference)
